@@ -49,6 +49,7 @@ Linux alone is gigabytes.
 | DoomV's own lock-step tests | the corners found so far (misaligned splits, rounding modes, fences, clock) | Sail | every core change |
 | Linux / Ubuntu boot | everything at once | DoomV, lock-stepped from a snapshot | milestones |
 
-The lock-step itself -- how the core's retirements reach DoomV in simulation
-and on the board -- is a design decision still open; see the research in
-[`agentic/`](../../agentic/README.md).
+The lock-step itself is described in [docs/lockstep.md](../../docs/lockstep.md),
+and how to run it -- the core in Vitis's software or hardware emulation,
+against DoomV -- in [docs/simulation-harness.md](../../docs/simulation-harness.md).
+How the core's retirements reach DoomV on the board is still a design to prove.
