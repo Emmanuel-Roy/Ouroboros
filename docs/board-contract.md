@@ -64,8 +64,8 @@ specification:
 
 An "uncore" common to every board, in HLS like everything else: the timer
 (ACLINT `mtime`/`mtimecmp`, counting from the core's own clock -- the FPGA's
-clock in every mode, see [lockstep.md](lockstep.md)), the interrupt controller (PLIC, or APLIC/IMSIC as
-RVA23 platforms use), a UART for the console, and the bridge that splits the
+clock in every mode, see [lockstep.md](lockstep.md)), the interrupt controller (AIA: an APLIC and
+IMSIC files, as DoomV models them; decisions, 2026-10-07), a UART for the console, and the bridge that splits the
 core's traffic between memory ports and the MMIO window, and the display engine
 that scans a framebuffer out of memory onto the video stream
 ([platform-generator.md](platform-generator.md), "Interfaces the generator
@@ -74,11 +74,10 @@ machine Linux sees, so they are the same on every board.
 
 ## Open
 
-- Interrupt controller: PLIC (simpler) or AIA (what DoomV and Sail's RVA23
-  platform model). Lock-step against DoomV in strict mode wants DoomV's
-  platform, which is AIA with a pair of IMSIC files per hart at
-  `0x24000000`/`0x28000000 + hart * 0x1000` and a CLINT `msip`/`mtimecmp`
-  per hart; with several harts that leans further toward AIA.
+- The interrupt controller is AIA (decided 2026-10-07: only what DoomV
+  models). Open is how much of DoomV's platform to take as it is: a pair of
+  IMSIC files per hart at `0x24000000`/`0x28000000 + hart * 0x1000`, the
+  APLIC, and a CLINT `msip`/`mtimecmp` per hart.
 - Whether PS peripheral interrupts on the KV260 can reach the fabric
   (unverified); polling is the fallback.
 - Cache coherence: none needed for one hart and non-coherent HP ports, as long

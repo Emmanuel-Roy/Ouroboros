@@ -19,6 +19,14 @@ and amended by every decision since ([decisions.md](decisions.md)).
   expanded view: every lever with its trade-off in a line, grouped by
   subsystem. **F** = full view, searchable. They are three views of one flat
   configuration, not nested menus.
+- **Only what DoomV supports.** An option that changes the architecture --
+  anything software can see: the ISA, the harts, VLEN, the interrupt
+  controller, the CSRs and their widths -- is offered only where DoomV can be
+  configured to the same machine, because the core is held to DoomV in
+  strict lock-step (decisions, 2026-10-07). Microarchitecture that software
+  cannot see -- pipeline, branch prediction, caches, TLBs, the datapath
+  widths -- is free. Supporting a new architectural option means adding it to
+  DoomV first.
 - **Estimates before building.** Every change re-runs the estimates --
   resources with headroom, decode and prefill tokens/s, memory left for Linux,
   build time. Estimates are replaced by measured costs as the pipeline produces
@@ -50,8 +58,8 @@ Shown read-only; not settings.
 
 | ID | Item | Value |
 |---|---|---|
-| FX-1 | Harts | 1 |
-| FX-2 | VLEN | 128 bits |
+| FX-1 | Interrupt controller | AIA: APLIC and IMSIC, as DoomV models them (no PLIC) |
+| FX-2 | Architectural options | only those DoomV can be configured to (see above) |
 | FX-3 | Hardware language | C++ for Vitis HLS only (riscv-formal's wrapper for testing only) |
 | FX-4 | IP | Ouroboros's own; vendor soft IP only as a listed stopgap; licensed IP never |
 | FX-5 | Tools | the pinned Vivado/Vitis release (2026.1) |
@@ -107,21 +115,23 @@ configurator says which.
 | ID | Lever | Tier | Options | Recommended | Depends on |
 |---|---|---|---|---|---|
 | ISA-1 | Profile | A | RVA23S64 / RVA22S64 / RV64GC | RVA23S64 | RVA23 brings V, H and the rest; the distribution (SW-2); DoomV and Sail configured to match |
-| ISA-2 | Zacas, Zabha | E | on / off | on if LUT headroom remains | A |
 | ISA-3 | Zicfilp, Zicfiss | E | on / off | off | Zicfiss needs A and Zimop |
-| ISA-4 | Interrupt controller | F | PLIC / AIA | whichever DoomV's strict platform models (open) | strict lock-step |
-| ISA-5 | Zfh, Zvfh | E | on / off | off on the KV260; on with headroom | Zvfh needs Zvfhmin, Zfhmin, V |
-| ISA-6 | Zfbfmin, Zvfbfmin, Zvfbfwma | E | on / off | off on the KV260 | F, V |
-| ISA-7 | Ziccamoc, Zama16b | F | on / off | on if the atomics path supports them | A |
-| ISA-8 | Zbc, Zvbc | F | on / off | off | Zvbc needs V |
-| ISA-9 | Zvkng, Zvksg | F | on / off | off | V; large LUT cost |
+| ISA-5 | Zfh | E | on / off | off on the KV260; on with headroom | F |
+| ISA-8 | Zbc | F | on / off | off | -- |
 | ISA-10 | Zkr | F | on / off | off | an on-chip entropy source |
-| ISA-11 | Sv48, Sv57 | F | on / off | off | with H, Sv48x4 / Sv57x4 |
-| ISA-12 | Svadu, Sdtrig, Ssstrict, Svvptc, Sspm | F | each on / off | off | Svadu: the walker writes A/D |
+| ISA-12 | Sspm (pointer masking) | F | on / off | on with RVA23 | -- |
 | ISA-13 | Emulate in M-mode where allowed | F | per item | hardware | a custom OpenSBI |
+| ISA-14 | Below RVA23: the extensions DoomV can switch off one by one (H, V, Zfa, Zicbo*, Zawrs, Zimop/Zcmop, Svinval, Svnapot, Svpbmt, Sscofpmf, Ssstateen, Zba/Zbb/Zbs, Zicond, the hints) | F | each on / off | as the profile (ISA-1) | ISA-1 |
 
-Every ISA option is offered only once DoomV and Sail can be configured to the
-same machine, because strict lock-step needs both sides alike.
+Every one is a DoomV `-march` switch, and Sail is configured to match.
+
+Removed, because DoomV does not implement them: Zacas, Zabha, Zvfh, Zvbc,
+Zvkg (so Zvkng, Zvksg), Ziccamoc, Zama16b, Sdtrig, Ssstrict, Svvptc, and a
+PLIC. **Always on in DoomV, so not options yet**, and the core has to
+implement them: with V, Zvfbfmin/Zvfbfwma and the vector crypto DoomV has
+(Zvbb, Zvkned, Zvknh, Zvksed, Zvksh); Sv48 and Sv57 (satp accepts them);
+Svadu (menvcfg.ADUE is writable). Each becomes an option once DoomV can
+switch it off.
 
 ### Core microarchitecture
 
@@ -137,12 +147,13 @@ same machine, because strict lock-step needs both sides alike.
 | CORE-8 | L1 caches | E | 4-64 KiB each; ways, line, write policy in F | 16 KiB / 16 KiB | BRAM |
 | CORE-9 | L2 | E | none / 64-512 KiB in URAM | none on the KV260 | URAM shared with the accelerator |
 | CORE-10 | TLBs | F | 4-64 entries each; an L2 TLB; G-stage TLB | 16 / 16 | H: two-stage walk |
-| CORE-11 | PMP entries | F | 0 / 8 / 16 / 64 | 8 | OpenSBI's need |
+| CORE-11 | PMP entries | -- | 16, as DoomV and Sail's configuration have | -- | an option once DoomV can vary it |
 | CORE-12 | Performance counters | F | 0-29 | 4 | Sscofpmf |
 | CORE-13 | Pipeline depth | F | 3-7 | from the clock target | Fmax against stalls |
-| CORE-14 | Physical address width | F | 32-56 | the smallest covering memory and MMIO | device tree |
-| CORE-15 | Misaligned accesses | F | hardware / trap to SBI | hardware (Sail's split) | trap needs a custom OpenSBI |
+| CORE-14 | Physical address width | -- | DoomV's | -- | an option once DoomV can vary it |
+| CORE-15 | Misaligned accesses | -- | in hardware, split as Sail and DoomV split them | -- | trapping them is not something DoomV models |
 | CORE-16 | Board trace hash interval | F | 2^10-2^24 | 2^16 | lockstep.md |
+| CORE-18 | VLEN | E | a power of two, 128 to 65536 bits | 128 | at least the vector datapath (CORE-1); DoomV `-vlen`, Sail's `vlen_exp` |
 | CORE-17 | Harts | E | 1 to as many as fit | 1 on the KV260: a second core costs the LUTs of a large share of the PEs; more where the decode floor leaves room for a whole core | each hart its own CLINT msip/mtimecmp and IMSIC files; caches coherent across harts (board-contract.md); the device tree's cpus; DoomV `-harts=N` |
 
 ### Accelerator
@@ -223,4 +234,6 @@ fallbacks that never change what the user asked for silently.
 
 - The constraint-model implementation and its rule sources.
 - Measured costs to replace every estimate (Phase 2 on).
-- PLIC or AIA (ISA-4), decided with DoomV's platform.
+- Whether DoomV should be able to switch off what it now always has with V
+  (Zvfbfmin/Zvfbfwma, the vector crypto), Sv48/Sv57 and Svadu, so that they
+  become options rather than requirements of the core.

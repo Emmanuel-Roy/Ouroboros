@@ -5,6 +5,14 @@ The owner's decisions, newest first. Where one overrides a research report in
 
 ## 2026-10-07
 
+**Configuration options are what DoomV supports.** Anything DoomV supports is
+fair game -- the hart count, VLEN, the core's microarchitecture, branch
+prediction -- and nothing else: an architectural option exists only where
+DoomV can be configured to the same machine. The interrupt controller is AIA
+only. Overrides the configurator's fixed single hart and VLEN of 128, its
+PLIC option, and the ISA options DoomV does not implement
+([configurator.md](configurator.md)).
+
 **The CPU is tested with DoomV between its generation and the bitstream.**
 Ouroboros generates the CPU (Vitis HLS synthesis), then asks whether to test
 it with DoomV, offering SW-Emu (Vitis software emulation), HW-Emu (Vitis
