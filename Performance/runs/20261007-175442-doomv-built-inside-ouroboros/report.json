@@ -1,0 +1,51 @@
+{
+  "id": "20261007-175442-doomv-built-inside-ouroboros",
+  "label": "DoomV built inside Ouroboros",
+  "commit": "cfcc74c",
+  "doomv": "bd7e3bb",
+  "target": "doomv-stub",
+  "tools": "2026.1",
+  "key": "ab4305e0e98e4498",
+  "config": {
+    "selftest": true,
+    "suites": [
+      "riscv-tests",
+      "riscv-tests-priv"
+    ],
+    "limit": 10
+  },
+  "components": {},
+  "accuracy": {
+    "riscv-tests": {
+      "tests": 10,
+      "match": 10,
+      "mismatch": 0,
+      "error": 0,
+      "skip": 0,
+      "test_passed": 10,
+      "records": 1128,
+      "seconds": 0.6,
+      "dut_ips": 467,
+      "failures": []
+    },
+    "riscv-tests-priv": {
+      "tests": 10,
+      "match": 10,
+      "mismatch": 0,
+      "error": 0,
+      "skip": 0,
+      "test_passed": 10,
+      "records": 2005,
+      "seconds": 0.4,
+      "dut_ips": 1853,
+      "failures": []
+    }
+  },
+  "notes": [
+    "DoomV stands in for the core: this proves the harness, not a design"
+  ],
+  "seconds": 3.0,
+  "ok": true,
+  "previous": null,
+  "regressions": []
+}

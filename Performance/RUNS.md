@@ -12,3 +12,4 @@ Written by `scripts/pipeline.py`, newest last.
 | 20261001-171953-calibration-rv32i--synthesis-and-c-simul | calibration rv32i: synthesis and C simulation | 1f594c2+ | kv260_som | FAIL | -- | -- | 0 | [report](runs/20261001-171953-calibration-rv32i--synthesis-and-c-simul/report.md) |
 | 20261001-172139-calibration-rv32i--synthesis-and-c-simul | calibration rv32i: synthesis and C simulation | 1f594c2+ | kv260_som | PASS | calibration-rv32i | -- | 0 | [report](runs/20261001-172139-calibration-rv32i--synthesis-and-c-simul/report.md) |
 | 20261001-172233-calibration-rv32i--full | calibration rv32i: full | 1f594c2+ | kv260_som | PASS | calibration-rv32i | -- | 0 | [report](runs/20261001-172233-calibration-rv32i--full/report.md) |
+| 20261007-175442-doomv-built-inside-ouroboros | DoomV built inside Ouroboros | cfcc74c | doomv-stub | PASS | -- | 20/20 | 0 | [report](runs/20261007-175442-doomv-built-inside-ouroboros/report.md) |
