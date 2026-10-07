@@ -149,7 +149,9 @@ and registers.
 | hash checkpoints every N steps | board level | to build |
 | loading a snapshot into the core | starting the core from a booted state | to design with the board contract |
 
-These are DoomV changes, made in the DoomV repository and pinned here.
+These are DoomV changes, made in the DoomV repository. Ouroboros follows
+DoomV's main branch: the submodule tracks `main`, and `scripts/pipeline.py`
+moves it to the newest commit before every run (decisions, 2026-10-07).
 
 **What exists, and how it is checked** (DoomV README, "Lock-stepping a core,
 in Vitis"):

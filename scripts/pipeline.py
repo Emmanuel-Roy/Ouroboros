@@ -74,6 +74,49 @@ def git_commit() -> str:
     return r.stdout.strip() + ("+" if dirty else "")
 
 
+# ---- DoomV: always the newest ---------------------------------------------------
+
+def follow_doomv(cfg: dict) -> dict:
+    """Ouroboros follows DoomV's main branch (decisions, 2026-10-07): before
+    anything runs, the DoomV submodule moves to the newest commit on main, and
+    is rebuilt if it has been built here before. OUROBOROS_DOOMV_ROOT names a
+    checkout that is used as it is. Returns what happened, for the report."""
+    root = rooted(cfg["doomv"]["root"])
+    git = lambda *a: subprocess.run(["git", "-C", str(root), *a], capture_output=True, text=True)
+    out = {"root": str(root)}
+    if os.environ.get("OUROBOROS_DOOMV_ROOT"):
+        out.update(commit=git("rev-parse", "--short", "HEAD").stdout.strip(), followed=False,
+                   note="OUROBOROS_DOOMV_ROOT: used as it is")
+        DOOMV_USED.update(out)
+        return out
+    if git("fetch", "-q", "origin", "main").returncode:
+        out.update(commit=git("rev-parse", "--short", "HEAD").stdout.strip(), followed=False,
+                   note="could not fetch DoomV; using the commit checked out")
+        say(f"DoomV: {out['note']} ({out['commit']})")
+        DOOMV_USED.update(out)
+        return out
+    before = git("rev-parse", "HEAD").stdout.strip()
+    latest = git("rev-parse", "origin/main").stdout.strip()
+    out.update(commit=latest[:7], followed=True, moved=before != latest)
+    if before != latest:
+        git("checkout", "-q", latest)
+        say(f"DoomV: moved to the newest main, {before[:7]} -> {latest[:7]} "
+            "(commit the submodule to record it)")
+    exe = root / cfg["doomv"]["exe"]
+    if exe.exists() and before != latest:
+        say("DoomV: rebuilding ...")
+        r = subprocess.run(["make"], cwd=root, capture_output=True, text=True)
+        out["rebuilt"] = r.returncode == 0
+        if r.returncode:
+            say("DoomV: the build failed -- see `make` in " + str(root))
+    DOOMV_USED.update(out)
+    return out
+
+
+# What follow_doomv found: each run's report names the DoomV it ran against.
+DOOMV_USED: dict = {}
+
+
 def pick_target(cfg: dict, name: str | None) -> tuple[str, dict]:
     """A target from the Vitis installation: a board, or a full part. The
     clock is a configuration choice, from the defaults."""
@@ -230,7 +273,7 @@ def new_run(label: str, target_name: str, key_parts: dict, tools_version: str) -
     stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
     slug = "".join(c if c.isalnum() else "-" for c in label.lower()).strip("-")[:40]
     key = hashlib.sha256(json.dumps(key_parts, sort_keys=True).encode()).hexdigest()[:16]
-    return {"id": f"{stamp}-{slug}" if slug else stamp, "label": label, "commit": git_commit(),
+    return {"id": f"{stamp}-{slug}" if slug else stamp, "label": label, "commit": git_commit(), "doomv": DOOMV_USED.get("commit"),
             "target": target_name, "tools": tools_version, "key": key, "config": key_parts,
             "components": {}, "accuracy": {}, "notes": []}
 
@@ -328,6 +371,8 @@ def main() -> int:
             p.add_argument("--stages", default="hls,csim,cosim,impl,accuracy")
     args = ap.parse_args()
     cfg = load_config()
+    if args.cmd in ("check", "run", "selftest"):
+        cfg["doomv"]["followed"] = follow_doomv(cfg)
     return {"check": cmd_check, "run": cmd_run, "selftest": cmd_selftest, "targets": cmd_targets}[args.cmd](args, cfg)
 
 

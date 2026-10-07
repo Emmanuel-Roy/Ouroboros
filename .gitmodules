@@ -1,6 +1,7 @@
 [submodule "Tools/Verification/DoomV"]
 	path = Tools/Verification/DoomV
 	url = https://github.com/Emmanuel-Roy/DoomV.git
+	branch = main
 [submodule "Tools/Verification/suites/riscv-formal"]
 	path = Tools/Verification/suites/riscv-formal
 	url = https://github.com/YosysHQ/riscv-formal.git

@@ -8,7 +8,11 @@ around it -- every retired instruction the core reports is checked against
 DoomV, and DoomV is checked against Sail. Sail is the specification of record;
 where Sail and anything else disagree, Sail is right.
 
-Everything here is a git submodule, pinned to a commit. Nothing is vendored.
+Everything here is a git submodule, pinned to a commit -- except DoomV, which
+follows its `main` branch: `scripts/pipeline.py` moves it to the newest
+commit before every run and rebuilds it if it was built here, and every run's
+report names the DoomV commit it used. By hand: `git submodule update
+--remote Tools/Verification/DoomV`. Nothing is vendored.
 
 ```
 Tools/Verification/

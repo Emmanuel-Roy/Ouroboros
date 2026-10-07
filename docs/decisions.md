@@ -5,6 +5,13 @@ The owner's decisions, newest first. Where one overrides a research report in
 
 ## 2026-10-07
 
+**Always the newest DoomV.** Ouroboros follows DoomV's `main` rather than a
+pinned commit: the submodule tracks `main`, `scripts/pipeline.py` moves it to
+the newest commit before `check`, `run` and `selftest` (and rebuilds it where
+it is built), and each run's report records the DoomV commit it ran against,
+so a result can still be reproduced. The submodule's recorded commit is moved
+to DoomV's newest with every DoomV change.
+
 **Configuration options are what DoomV supports.** Anything DoomV supports is
 fair game -- the hart count, VLEN, the core's microarchitecture, branch
 prediction -- and nothing else: an architectural option exists only where
