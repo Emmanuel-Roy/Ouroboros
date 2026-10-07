@@ -42,6 +42,7 @@ accepts it.
 | 6 | Decode or prefill? | Chat / Balanced / Long prompts, or 0-100 | Chat; Balanced when DSPs are spare beyond the decode floor | ACC-7, ACC-9, ACC-10 |
 | 7 | Lots of PE units or not? | decode floor only / moderate / fill, and any share for other datatypes | moderate, all for the model's own types; "past this point PEs do not raise decode" shown | ACC-8, ACC-17, PLAT-4 |
 | 8 | Rebuild OpenSBI/Linux for this configuration, or have you already? | build for me / reuse the last build / my images | build; reuse preselected when only device-tree-level changes since the last build | SW-1 |
+| 9 | Test the CPU with DoomV? -- asked after the CPU is generated, before the bitstream (flow step 8) | SW-Emu / HW-Emu / both / skip | both | BLD-1 |
 
 ## Fixed by project rules
 
@@ -200,7 +201,7 @@ Recommended from the supplied `.gguf`, adjustable like the PEs
 
 | ID | Lever | Tier | Options | Recommended | Depends on |
 |---|---|---|---|---|---|
-| BLD-1 | Verification before the bitstream | E | validate only / + C-sim lock-step / + co-sim / + boot in C-sim | + C-sim lock-step + co-sim of changed components | pipeline stages |
+| BLD-1 | Test the CPU with DoomV before the bitstream | A | SW-Emu / HW-Emu / both / skip, asked at flow step 8 (decisions, 2026-10-07) | both | Tools/Verification/README.md; a saved configuration remembers the answer |
 | BLD-2 | Implementation strategy | E | default / Performance_Explore / sweep | default, sweeping on failure | names checked against 2026.1 |
 | BLD-3 | Fallback policy | E | automatic (non-functional levers only, reported) / ask / never | automatic | order: strategy, PEs, clock, caches and KV, then ask; never the ISA, datatypes, I/O or distribution |
 | BLD-4 | Parallel jobs | F | 1 to the host's cores | half the cores | pipeline `--jobs` |

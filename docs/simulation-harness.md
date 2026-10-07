@@ -9,7 +9,9 @@ python Tools/Verification/DoomV/tools/verification/corun.py --lockstep sw-emu --
 ```
 
 That line runs every riscv-test on the core in software emulation and checks
-it against DoomV, strictly. It is the usual run.
+it against DoomV, strictly. It is the usual run. When Ouroboros builds a CPU
+it runs these itself, after asking which emulations to use, before the
+bitstream ([Tools/Verification/README.md](../Tools/Verification/README.md#in-the-ouroboros-flow)).
 
 ## What runs
 

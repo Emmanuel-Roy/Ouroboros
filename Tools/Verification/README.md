@@ -49,7 +49,77 @@ Linux alone is gigabytes.
 | DoomV's own lock-step tests | the corners found so far (misaligned splits, rounding modes, fences, clock) | Sail | every core change |
 | Linux / Ubuntu boot | everything at once | DoomV, lock-stepped from a snapshot | milestones |
 
-The lock-step itself is described in [docs/lockstep.md](../../docs/lockstep.md),
-and how to run it -- the core in Vitis's software or hardware emulation,
-against DoomV -- in [docs/simulation-harness.md](../../docs/simulation-harness.md).
+The lock-step itself is described in [docs/lockstep.md](../../docs/lockstep.md).
 How the core's retirements reach DoomV on the board is still a design to prove.
+
+## Launching SW-Emu and HW-Emu
+
+The core runs in one of Vitis HLS's two emulations, and DoomV, inside the
+testbench's process, checks every instruction it retires, strictly. The
+harness is DoomV's `corun.py`; run it from the repository root.
+
+**SW-Emu** -- Vitis software emulation (C simulation). The core's C++,
+compiled natively once per run, then run on every test. Fast: the level for
+every change.
+
+```
+python Tools/Verification/DoomV/tools/verification/corun.py --lockstep sw-emu --sims none --suite riscv-tests
+```
+
+**HW-Emu** -- Vitis hardware emulation (C/RTL co-simulation). The core is
+synthesised once per run and the generated Verilog runs in XSim on each
+test, one at a time; DoomV checks the records the RTL produced. Slow: give it
+a short list, after each synthesis.
+
+```
+python Tools/Verification/DoomV/tools/verification/corun.py --lockstep hw-emu --sims none --suite riscv-tests --count 20
+```
+
+**Which simulators.** `--sims none` is the usual run: the core against DoomV
+alone. DoomV is always there; `--sims` adds others, which run the same
+program beside the core and are compared with what it retired -- they do not
+decide the verdict, but at a mismatch they show whether the reference agrees
+with DoomV or with the core:
+
+| `--sims` | beside the core and DoomV |
+|---|---|
+| `none` | nothing -- **the usual run** |
+| `sail` | Sail, to confirm a mismatch against the specification itself |
+| `sail,spike,whisper,qemu` | all four (also what leaving `--sims` out does) |
+
+**Which core and which programs.** `--component <dir>` is the core's Vitis
+HLS component (until the core exists, a stand-in from DoomV); `--suite
+riscv-tests` with test names or `--count N`, or ELF paths, chooses the
+programs. The exit status is 0 only if the core matched DoomV on every one.
+Everything else -- the core testbench's contract, reading the report, the
+snapshot a mismatch leaves, prerequisites -- is in
+[docs/simulation-harness.md](../../docs/simulation-harness.md).
+
+### In the Ouroboros flow
+
+The same runs happen on their own when Ouroboros builds a CPU
+([docs/ouroboros-flow.md](../../docs/ouroboros-flow.md), decisions
+2026-10-07):
+
+1. **Generate the CPU.** Vitis HLS synthesises the core and the other
+   components.
+2. **Ask.** *Test the CPU with DoomV?* -- **SW-Emu**, **HW-Emu**, **both**
+   (recommended) or **skip**. A saved configuration remembers the answer,
+   so a re-run does not ask again.
+3. **Lock-step.** The chosen emulations run, DoomV only (`--sims none`):
+
+   | emulation | runs | what it shows |
+   |---|---|---|
+   | SW-Emu | every test of the suites: riscv-tests, the M- and S-mode tests, DoomV's directed lock-step tests | the C++ that becomes the hardware is right |
+   | HW-Emu | a short directed set, after SW-Emu if both were chosen | the generated RTL does what the C++ did |
+
+   A mismatch stops the flow before the bitstream, with the test, the
+   instruction, the field and the DoomV snapshot from just before it.
+   Ouroboros asks whether to stop there or build the bitstream anyway; a
+   bitstream built past a mismatch, or with the test skipped, is marked
+   unverified in the build's report.
+4. **Bitstream.** Vivado implements the design and writes the bitstream,
+   then the boot image.
+
+Each test's report is kept in the build's `lockstep/` folder, and the
+results are part of the build's report.

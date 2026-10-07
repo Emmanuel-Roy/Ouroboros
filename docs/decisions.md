@@ -3,6 +3,19 @@
 The owner's decisions, newest first. Where one overrides a research report in
 `agentic/reports/`, it says so; the report itself is left as written.
 
+## 2026-10-07
+
+**The CPU is tested with DoomV between its generation and the bitstream.**
+Ouroboros generates the CPU (Vitis HLS synthesis), then asks whether to test
+it with DoomV, offering SW-Emu (Vitis software emulation), HW-Emu (Vitis
+hardware emulation) or both; the chosen lock-steps run automatically, and
+only then does the flow proceed to bitstream generation
+([ouroboros-flow.md](ouroboros-flow.md), steps 7-9; how to run the same by
+hand: [Tools/Verification/README.md](../Tools/Verification/README.md#launching-sw-emu-and-hw-emu)).
+Replaces configurator BLD-1's choice of verification stages. Generally only
+DoomV checks the core; Sail, Spike, Whisper and QEMU are added by hand when
+chasing a mismatch.
+
 ## 2026-10-02
 
 **Several harts, DoomV first.** Ouroboros supports more than one hart; the

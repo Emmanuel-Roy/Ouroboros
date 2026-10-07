@@ -18,8 +18,10 @@ rich text, a live task list, progress bars, the current step always visible.
 | **4. Configuration** | Ouroboros walks you through the choices: the questions always asked (faster CPU or faster array, RVA23 or less, wide vector unit, big KV cache, many PEs, decode or prefill, which I/O, rebuild Linux/OpenSBI or not), then, if you want them, the expanded and full selections. Every change re-runs the estimates and the compatibility checks at once; an impossible combination says why. | the recommended value and yours, side by side; estimates updating live |
 | **5. Plan** | Before anything long starts: what will be built, what changed from the recommendation, the estimates, and how long the build should take. You confirm. The configuration is saved, so the same build can be re-run without the questions. | a summary to accept, edit or cancel |
 | **6. Generate** | Ouroboros generates every file the build needs: the HLS sources' parameters, the platform files from the target's specification (block design, constraints, memory map, boot image description, device tree), and, if chosen, the OpenSBI/Linux configuration. | a checklist of generated files |
-| **7. Synthesise and implement** | Vitis HLS synthesises each component; Vivado builds the block design, synthesises, places, routes, and writes the bitstream; then the boot image. Lock-step accuracy runs alongside when asked for. | a live task list with a progress bar per stage, elapsed and remaining time, the current phase of each tool, warnings as they appear; a failure says which stage, why, and which choice most likely caused it |
-| **8. Result** | The bitstream and boot image, and a report: resources used against the estimate, achieved clock, timing, accuracy results. | where everything is, and the next command to run |
+| **7. Generate the CPU** | Vitis HLS synthesises each component -- the core, the uncore, the accelerator -- from the generated sources: the CPU's RTL, ready to test. | a progress bar per component; resources and estimated clock as each finishes |
+| **8. Test the CPU with DoomV** | Ouroboros asks: **test the CPU with DoomV?** -- in **SW-Emu** (Vitis software emulation: the core's C++, fast), **HW-Emu** (Vitis hardware emulation: the RTL from step 7 in XSim, slow), **both** (recommended), or **skip**. The chosen emulations then run on their own: every test of the verification suites on the core, each record it retires checked against DoomV in strict lock-step ([verification](../Tools/Verification/README.md#launching-sw-emu-and-hw-emu)). All match: the flow goes on to step 9. A mismatch stops it before the bitstream: the test, the instruction, the field, and a DoomV snapshot from just before it; Ouroboros then asks whether to stop there or build the bitstream anyway, marked unverified. | tests done of tests total per emulation and suite, records checked, the first mismatch as soon as there is one |
+| **9. Implement and generate the bitstream** | Vivado builds the block design, synthesises, places, routes, and writes the bitstream; then the boot image. | a live task list with a progress bar per stage, elapsed and remaining time, the current phase of each tool, warnings as they appear; a failure says which stage, why, and which choice most likely caused it |
+| **10. Result** | The bitstream and boot image, and a report: resources used against the estimate, achieved clock, timing, and the DoomV results -- which emulations ran, tests and records matched, or that the test was skipped. | where everything is, and the next command to run |
 
 ## Where things go
 
@@ -50,11 +52,12 @@ build/
   KV260-2026-10-01_14-32-05/
     config.toml        the configuration, as chosen; re-runs this build exactly
     plan.md            what step 5 showed
-    report.md          what step 8 showed, plus report.json
+    report.md          what step 10 showed, plus report.json
     logs/              every tool's full output
     generated/         every generated source: HLS parameters, block-design Tcl,
                        device tree, boot image description
     vitis/             each HLS component's synthesis, simulation and packaged IP
+    lockstep/          step 8: each test's DoomV report, traces of what failed, snapshots
     vivado/            the project, checkpoints, and utilization and timing reports
     xdc/               the generated constraints
     boot/              FSBL, boot image description, BOOT.BIN (where the target needs one)
@@ -73,7 +76,7 @@ Long stages report progress the tools themselves expose:
   generation, packaging), one bar per component; components run in parallel.
 - **Vivado**: synthesis, then implementation's phases (opt, place, phys-opt,
   route), then bitstream -- each a sub-bar, from the phase markers in the log.
-- **Lock-step**: tests done of tests total, per suite.
+- **Lock-step** (step 8): tests done of tests total, per emulation and suite.
 
 Every bar shows elapsed time and an estimate of what remains, from the last
 comparable build when there is one. The full log of every tool is always in
