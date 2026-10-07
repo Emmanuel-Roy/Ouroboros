@@ -106,7 +106,7 @@ new clock mode; DoomV's own Sail lock-step keeps Sail's clock.
 | level | the core is | DoomV is | speed (report's estimates) | used for |
 |---|---|---|---|---|
 | **C simulation** (Vitis software emulation) | the HLS C++, compiled natively | linked into the same process | about 10^6-10^7 instructions/s | every change: riscv-tests, riscv-vector-tests, arch-test, riscv-dv seeds, Linux and Ubuntu boots |
-| **RTL simulation** (Vitis hardware emulation) | the Verilog Vitis/Vivado generate, in XSim or Verilator | reading the trace the testbench writes | kHz | short directed tests on every synthesis: does the generated RTL do what the C++ did |
+| **RTL simulation** (Vitis hardware emulation) | the Verilog Vitis/Vivado generate, in XSim or Verilator | linked into the testbench, handed what the RTL retired (or reading a trace it writes) | kHz | short directed tests on every synthesis: does the generated RTL do what the C++ did |
 | **on the board** (hardware) | the bitstream on the FPGA | offline, replaying a recorded log | full speed; comparison offline | milestone boots; bisecting a divergence |
 
 **C simulation is the main level**, and the reason the all-HLS rule helps
@@ -139,20 +139,49 @@ and registers.
 
 ## What DoomV needs
 
-DoomV's lock-step reads a trace file, which suits the RTL level. The others
-need more:
-
 | need | for | status |
 |---|---|---|
-| a cycle stamp per record, and a clock mode driven by it | strict lock-step on the core's clock | to build, in DoomV and in Sail's emulator harness |
+| a cycle stamp per record, and a clock mode driven by it | strict lock-step on the core's clock | **exists in DoomV** (`-cycle-clock=<n>`, below); in Sail's emulator harness, to build |
 | Sail-format trace reader, strict and lenient | RTL level | **exists** |
 | snapshots | common starting points | **exists** |
-| an in-process API: reset or restore, then compare one record at a time | C simulation at full speed (no text, no file) | to build |
+| an in-process API: reset or restore, then compare one record at a time | C simulation at full speed (no text, no file) | **exists**: `doomv_lockstep.dll` (below) |
 | replay of a value log: take this time/counter value, this device load, this interrupt before step N | board level, and lenient runs being reproducible | partly: lenient mode does this from a full trace; a compact log format is to build |
 | hash checkpoints every N steps | board level | to build |
 | loading a snapshot into the core | starting the core from a booted state | to design with the board contract |
 
 These are DoomV changes, made in the DoomV repository and pinned here.
+
+**What exists, and how it is checked** (DoomV README, "Lock-stepping a core,
+in Vitis"):
+
+- **The library.** `make lockstep-lib` builds `doomv_lockstep.dll`, DoomV with
+  a plain C interface (`src/doomv_lockstep.h`): open a machine with
+  riscv_doom's arguments (reset, or `-restore=<snapshot>`), hand it one
+  record per retired step -- a `doomv_ls_record` filled from the retirement
+  port, or Sail-format text -- and get back a match or the mismatch. Static,
+  so it needs nothing beside it; Vitis 2026.1's own MinGW g++ links it with
+  `tb.cflags=-I<dir>` and `csim.ldflags=-L<dir> -ldoomv_lockstep` (which
+  serves co-simulation too), the DLL's folder on `PATH`. One machine per
+  process.
+- **Both Vitis emulations, shown.** DoomV's gate synthesises a stand-in for a
+  retirement port (a pass-through of record words, in DoomV's
+  `tools/verification/lockstep_lib/vitis`) for the KV260's part and runs its
+  testbench, which hands what comes out of the port to the library: in C
+  simulation, and in C/RTL co-simulation in XSim, where the records DoomV
+  checks are the ones the generated Verilog produced. Both match.
+- **The core's clock.** With `-cycle-clock=<n>`, each record's cycle count --
+  a line `cycle <n>` before the record in text, as `hart <i>` is, or a field
+  of the structure -- sets the clock before the step: every hart's `mcycle`
+  advances by the cycles since the last record (where `mcountinhibit` and
+  the Smcntrpmf filters let it), `mtime` by one tick per `<n>` cycles. The
+  count is the one the record's instruction sees, from 0 where the run
+  starts. A WFI completes or traps by the state at its own stamp: the core's
+  wait is the gap between its stamp and the one before.
+- **Held to Sail.** Sail's clock is a cycle clock of one tick per two
+  instructions, so DoomV writes Sail's trace back with that count as stamps
+  (`-lockstep-stamp`) and runs `-cycle-clock=1` against it: all 381 one-hart
+  tests DoomV's Sail lock-step runs match strictly, through the library as
+  well, and a record with one value changed is caught.
 
 ## Several harts
 
@@ -170,7 +199,7 @@ memory system's. So for Ouroboros:
 | need | for | status |
 |---|---|---|
 | the core's trace in the order its harts' records commit, marked `hart <i>` | any multi-hart lock-step | to design with the trace stream |
-| DoomV stepping the hart the next reference record names, instead of round-robin | following the core's interleaving | to build, in DoomV |
+| DoomV stepping the hart the next reference record names, instead of round-robin | following the core's interleaving | **exists**: `-lockstep-follow`, implied by `-cycle-clock` and always so in-process |
 | a rule for loads whose value another hart decided (the reference's commit order may not be one DoomV can reproduce if the core's memory is not sequentially consistent) | strict lock-step with real concurrency | open |
 
 ## Open
@@ -178,10 +207,6 @@ memory system's. So for Ouroboros:
 - Whether the board's memory latency can be made run-to-run constant (for
   example a fixed-latency adapter), which would make board runs repeat
   cycle-for-cycle and not only replayably.
-- The cycle stamp's place in Sail's trace format: an extra line per record,
-  which DoomV and Sail's harness both read and write.
-- Whether the WFI wait (Sail's `max_time_to_wait`) also follows the core's
-  clock, so a wait ends at the cycle the core's does.
 - The record's binary form inside the core and on the trace stream (the
   rendering to Sail text happens outside the hardware).
 - Vector register writes are 128 bits each; whether the stream carries whole
