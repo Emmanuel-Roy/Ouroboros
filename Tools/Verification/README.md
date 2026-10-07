@@ -29,17 +29,47 @@ Tools/Verification/
 
 ## Getting them
 
+DoomV is built here, inside Ouroboros, and Ouroboros's tools run this copy.
+Once, from the repository root (Git Bash; WSL with Ubuntu for Sail and the
+RISC-V cross-compiler, as DoomV's README sets up):
+
 ```sh
 git submodule update --init                      # the five above, shallow where large
-git -C Tools/Verification/DoomV submodule update --init tools/verification/simulators/sail/src tools/verification/tests/arch-test
-bash Tools/Verification/DoomV/tools/verification/tests/suites/fetch.sh
+cd Tools/Verification/DoomV
+git submodule update --init --depth 1 tools/verification/simulators/spike/src \
+    tools/verification/simulators/sail/src tools/verification/tests/arch-test
+python scripts/get_clang.py                      # the Clang DoomV builds with
+make                                             # riscv_doom.exe
+make lockstep-lib                                # doomv_lockstep.dll, for the Vitis harness
+bash tools/verification/tests/suites/fetch.sh    # riscv-tests, DAMO, riscv-vector-tests
+wsl -d Ubuntu -u root -- bash tools/verification/simulators/sail/build.sh   # Sail, for this copy
+S=/mnt/z/Code/Dev/Ouroboros/Tools/Verification/DoomV                        # this folder, as WSL sees it
+wsl -d Ubuntu -u root -- env SAIL=$S/tools/verification/simulators/sail/src/build/c_emulator/sail_riscv_sim     SAIL_PROFILE=$S/tools/verification/tests/arch-test/config/sail/sail-RVA23S64/sail-RVA23S64.yaml     python3 $S/tools/verification/simulators/sail/mkconfig.py                  # Sail's RVA23S64 configuration
+python -c "import sys; sys.path.insert(0, 'tools/verification'); import lockstep_sail; lockstep_sail.build_lockstep_tests()"
+cd ../../..
+python scripts/pipeline.py check                 # says "ready"
 ```
 
-The last line fetches the prebuilt riscv-tests, the DAMO hypervisor tests and
-riscv-vector-tests at VLEN=128 from `sail-riscv-tests`' releases, which DoomV's
-suites already run against Sail. DoomV's Linux, OpenSBI and BusyBox submodules
-are only needed to rebuild the guests; leave them uninitialised otherwise --
-Linux alone is gigabytes.
+What each is for:
+
+- **Spike's source**: DoomV computes floating point with the SoftFloat in it.
+- **Sail and arch-test**: the reference DoomV is held to, and its
+  conformance suite. Sail is only needed when it runs beside the core (`corun.py
+  --sims sail`, and the stand-in core, which replays Sail's run); the core
+  against DoomV alone needs none of it.
+- **`fetch.sh`**: the prebuilt riscv-tests, the DAMO hypervisor tests and
+  riscv-vector-tests at VLEN=128 from `sail-riscv-tests`' releases.
+- **The last Python line**: DoomV's directed lock-step tests (the pipeline's
+  `lockstep-directed` suite).
+
+Optional: copying a trained profile to `build/pgo/doomv.profdata` makes DoomV
+about 1.4x faster (a profile changes speed, never results; DoomV's README,
+"Which compiler"). DoomV's Linux, OpenSBI and BusyBox submodules are only
+needed to rebuild the guests; leave them uninitialised otherwise -- Linux alone
+is gigabytes.
+
+From then on DoomV keeps itself current: `scripts/pipeline.py` moves it to
+the newest commit on DoomV's `main` before every run and rebuilds it.
 
 ## What each suite is for
 
