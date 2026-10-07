@@ -116,22 +116,23 @@ configurator says which.
 |---|---|---|---|---|---|
 | ISA-1 | Profile | A | RVA23S64 / RVA22S64 / RV64GC | RVA23S64 | RVA23 brings V, H and the rest; the distribution (SW-2); DoomV and Sail configured to match |
 | ISA-3 | Zicfilp, Zicfiss | E | on / off | off | Zicfiss needs A and Zimop |
-| ISA-5 | Zfh | E | on / off | off on the KV260; on with headroom | F |
-| ISA-8 | Zbc | F | on / off | off | -- |
+| ISA-5 | Zfh, Zvfh | E | on / off each | off on the KV260; on with headroom | Zvfh needs V and Zvfhmin |
+| ISA-6 | Zvfbfmin, Zvfbfwma (bf16) | E | on / off each | off on the KV260 | V; Zvfbfwma needs Zvfbfmin |
+| ISA-8 | Zbc, Zvbc | F | on / off each | off | Zvbc needs V |
+| ISA-9 | Vector crypto: Zvkned (AES), Zvknha/Zvknhb (SHA-2), Zvksed (SM4), Zvksh (SM3), Zvkg (GHASH) | F | each on / off; or the umbrellas Zvkn, Zvknc, Zvkng, Zvks, Zvksc, Zvksg | off: a large LUT cost | V; Zvknhb includes Zvknha |
 | ISA-10 | Zkr | F | on / off | off | an on-chip entropy source |
-| ISA-12 | Sspm (pointer masking) | F | on / off | on with RVA23 | -- |
+| ISA-11 | Sv48, Sv57 | F | on / off each | off on the KV260 (Sv39 covers its memory) | Sv57 needs Sv48; with H, the same for Sv48x4 / Sv57x4 |
+| ISA-12 | Svadu, Sspm | F | on / off each | Svadu off (Svade, as RVA23 requires); Sspm on with RVA23 | Svadu: the walker writes A/D |
 | ISA-13 | Emulate in M-mode where allowed | F | per item | hardware | a custom OpenSBI |
-| ISA-14 | Below RVA23: the extensions DoomV can switch off one by one (H, V, Zfa, Zicbo*, Zawrs, Zimop/Zcmop, Svinval, Svnapot, Svpbmt, Sscofpmf, Ssstateen, Zba/Zbb/Zbs, Zicond, the hints) | F | each on / off | as the profile (ISA-1) | ISA-1 |
+| ISA-14 | Below RVA23: the extensions DoomV can switch off one by one (H, V, Zfa, Zicbo*, Zawrs, Zimop/Zcmop, Svinval, Svnapot, Svpbmt, Sscofpmf, Ssstateen, Zba/Zbb/Zbs, Zicond, Zvfhmin, Zvbb/Zvkb, the hints) | F | each on / off | as the profile (ISA-1) | ISA-1 |
 
-Every one is a DoomV `-march` switch, and Sail is configured to match.
+Every one is a DoomV `-march` switch, held to Sail on and off in DoomV's
+gate (`tools/verification/ext_switches.py`), and Sail is configured to
+match. What the chosen profile requires is on and not offered (RVA23S64
+requires Zvfhmin and Zvbb, for instance); what it leaves optional is.
 
-Removed, because DoomV does not implement them: Zacas, Zabha, Zvfh, Zvbc,
-Zvkg (so Zvkng, Zvksg), Ziccamoc, Zama16b, Sdtrig, Ssstrict, Svvptc, and a
-PLIC. **Always on in DoomV, so not options yet**, and the core has to
-implement them: with V, Zvfbfmin/Zvfbfwma and the vector crypto DoomV has
-(Zvbb, Zvkned, Zvknh, Zvksed, Zvksh); Sv48 and Sv57 (satp accepts them);
-Svadu (menvcfg.ADUE is writable). Each becomes an option once DoomV can
-switch it off.
+Removed, because DoomV does not implement them: Zacas, Zabha, Ziccamoc,
+Zama16b, Sdtrig, Ssstrict, Svvptc, and a PLIC.
 
 ### Core microarchitecture
 
@@ -234,6 +235,3 @@ fallbacks that never change what the user asked for silently.
 
 - The constraint-model implementation and its rule sources.
 - Measured costs to replace every estimate (Phase 2 on).
-- Whether DoomV should be able to switch off what it now always has with V
-  (Zvfbfmin/Zvfbfwma, the vector crypto), Sv48/Sv57 and Svadu, so that they
-  become options rather than requirements of the core.
