@@ -147,11 +147,18 @@ Zama16b, Sdtrig, Ssstrict, Svvptc, and a PLIC.
 | CORE-7 | Branch direction predictor | E | none (fetch stalls until the branch resolves) / static not-taken / static backward-taken-forward-not-taken / 1-bit history table / 2-bit saturating counters (bimodal) / two-level local history / gshare (global history XOR pc) / tournament (bimodal and gshare with a chooser) / TAGE | 2-bit bimodal | the dynamic ones need a BTB (CORE-7a) |
 | CORE-7a | Branch targets | E | none / BTB; with a return-address stack; with an indirect-target predictor | BTB + RAS | -- |
 | CORE-7b | Predictor sizes | F | table entries (64-16K), history length, BTB entries and ways, RAS depth, TAGE tables | 2-bit: 128 entries; BTB 32; RAS 2 | BRAM/LUTs |
-| CORE-8 | L1 caches | E | 4-64 KiB each; ways, line, write policy in F | 16 KiB / 16 KiB | BRAM |
-| CORE-9 | L2 | E | none / 64-512 KiB in URAM | none on the KV260 | URAM shared with the accelerator |
+| CORE-8 | L1 caches | E | 4-64 KiB each | 16 KiB / 16 KiB | BRAM |
+| CORE-8a | L1 organisation | F | ways 1-8; line 32-128 bytes; replacement LRU / pseudo-LRU / random; data cache write-back or write-through | 4 ways, 64-byte lines, pseudo-LRU, write-back | the line is at least the cache-block size `cbo` sees (64 bytes) |
+| CORE-8b | Non-blocking data cache | F | blocking / hit-under-miss / 2-8 outstanding misses (MSHRs) | blocking in-order; 4 with out of order | CORE-19 |
+| CORE-8c | Store buffer and write combining | F | none / 2-16 entries, combining on or off | 4, combining | loads check it (CORE-22) |
+| CORE-8d | Prefetchers | F | instruction: none / next-line; data: none / next-line / stride | next-line instruction, none for data | memory ports |
+| CORE-8e | `fence.i` | F | flush the I-cache / snoop the D-cache from the I-cache | flush | -- |
+| CORE-9 | L2 | E | none / 64-512 KiB in URAM; inclusive / exclusive / non-inclusive of the L1s | none on the KV260 | URAM shared with the accelerator |
 | CORE-10 | TLBs | F | 4-64 entries each; an L2 TLB; G-stage TLB | 16 / 16 | H: two-stage walk |
+| CORE-10a | Page-table walker caches | F | none / caching non-leaf entries, 4-32 | none | -- |
 | CORE-11 | PMP entries | -- | 16, as DoomV and Sail's configuration have | -- | an option once DoomV can vary it |
 | CORE-12 | Performance counters | F | 0-29 | 4 | Sscofpmf |
+| CORE-12a | Counter events | F | architectural (retired instructions, branches, loads, stores, traps) / + microarchitectural (cache and TLB misses, mispredictions, stalls) | both | the microarchitectural ones are read from the core in lock-step: see "Out of order, in lock-step" |
 | CORE-13 | Pipeline depth | F | 3-7 (in-order); the front end and commit for the others | from the clock target | Fmax against stalls |
 | CORE-19 | Execution model | E | in-order, stalling on hazards / scoreboarding (in-order issue, out-of-order execution and completion, CDC 6600 style) / Tomasulo (reservation stations, renaming by tag, a common data bus) / explicit renaming (a physical register file and a free list, MIPS R10000 style) | in-order on the KV260 | every one commits in program order through a reorder buffer: see "Out of order, in lock-step" below |
 | CORE-20 | Issue width | E | 1 / 2 / 4 | 1 | above 1: register-file ports, wakeup and bypass grow with it |
@@ -162,6 +169,15 @@ Zama16b, Sdtrig, Ssstrict, Svvptc, and a PLIC.
 | CORE-15 | Misaligned accesses | -- | in hardware, split as Sail and DoomV split them | -- | trapping them is not something DoomV models |
 | CORE-16 | Board trace hash interval | F | 2^10-2^24 | 2^16 | lockstep.md |
 | CORE-18 | VLEN | E | a power of two, 128 to 65536 bits | 128 | at least the vector datapath (CORE-1); DoomV `-vlen`, Sail's `vlen_exp` |
+| CORE-24 | Front end | F | fetch width 1-4 instructions; fetch queue 2-16; loop buffer none / 8-64 instructions | 1, 4, none | CORE-20 |
+| CORE-25 | Macro-op fusion | F | none / each pair: `lui`+`addi`, `auipc`+`addi`, `auipc`+`jalr`, `slli`+`add` (address calculation), `slli`+`srli` (zero-extension), a load with its address calculation | none | the fused pair still retires as two records |
+| CORE-26 | Atomics | F | in the L1 ("near") / at the memory side ("far") | near | A; coherence (CORE-27) |
+| CORE-27 | Coherence, several harts | E | snooping / directory; MSI / MESI / MOESI | snooping MESI | CORE-17 above 1 |
+| CORE-28 | Simultaneous multithreading | E | 1 / 2 / 4 harts sharing a pipeline | 1 | each thread is a hart (CORE-17 counts them all); DoomV steps them as harts |
+| CORE-29 | Vector unit structure | F | lanes (from CORE-1's width); chaining on / off; vector load/store width 32-128 bits; 1-2 vector units | chaining on, one unit, load/store as wide as the datapath | CORE-1, CORE-6 |
+| CORE-30 | Error protection | F | none / parity / ECC (SECDED), each for caches, TLBs and register files | none | an error is a reset, as no RAS extension is modelled |
+| CORE-31 | Power | F | clock gating of idle units on / off; WFI stops the pipeline's clock on / off | both on | -- |
+| CORE-32 | Instruction trace encoder | F | none / E-Trace / N-Trace, to the board's trace buffer | none | beside the lock-step's retirement port; software cannot see it |
 | CORE-17 | Harts | E | 1 to as many as fit | 1 on the KV260: a second core costs the LUTs of a large share of the PEs; more where the decode floor leaves room for a whole core | each hart its own CLINT msip/mtimecmp and IMSIC files; caches coherent across harts (board-contract.md); the device tree's cpus; DoomV `-harts=N` |
 
 ### Out of order, in lock-step
@@ -184,7 +200,15 @@ and every combination is held to the same DoomV. What makes that true:
   value DoomV's device would not have given.
 - **Branch predictors only change time.** A wrong prediction costs cycles,
   never a different result, so every predictor passes the same lock-step,
-  and the cycle stamps show what each one costs.
+  and the cycle stamps show what each one costs. The same holds for every
+  other microarchitectural option here -- fusion, caches, prefetchers,
+  coherence, multithreading, near or far atomics, ECC: they change when
+  things happen, never what.
+- **Counters of microarchitectural events are the core's.** A counter
+  counting cache misses or mispredictions (CORE-12a) has a value only the
+  core knows, and Sail does not model either, so a read of one is taken from
+  the core's record -- lenient for those reads alone, strict for everything
+  else, including the architectural events.
 
 Each model is built in the coding standard's form -- one loop at II=1,
 stage registers, a stall vector -- with the reservation stations, reorder
