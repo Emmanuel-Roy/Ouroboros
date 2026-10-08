@@ -5,6 +5,18 @@ The owner's decisions, newest first. Where one overrides a research report in
 
 ## 2026-10-07
 
+**Several branch predictors and execution models, out of order included.**
+The configurator offers branch direction predictors from none and static
+through 1-bit and 2-bit counters to two-level, gshare, tournament and TAGE,
+with a BTB, return-address stack and indirect predictor; and execution models
+from in-order with stalls through scoreboarding and Tomasulo to explicit
+renaming, with issue width and the out-of-order structures sized
+([configurator.md](configurator.md), CORE-7, CORE-19 to CORE-23). Every model
+commits in program order through a reorder buffer, so the lock-step against
+DoomV is the same for all of them. Overrides AGENTS.md's "simple pipeline,
+stalls for hazards", which becomes the first model built and the KV260's
+recommendation.
+
 **Always the newest DoomV.** Ouroboros follows DoomV's `main` rather than a
 pinned commit: the submodule tracks `main`, `scripts/pipeline.py` moves it to
 the newest commit before `check`, `run` and `selftest` (and rebuilds it where

@@ -144,18 +144,55 @@ Zama16b, Sdtrig, Ssstrict, Svvptc, and a PLIC.
 | CORE-4 | FP divide and square root | F | radix-2 / radix-4 | radix-2 | -- |
 | CORE-5 | Multiplier, divider | E | single-cycle DSP / pipelined / iterative | pipelined; radix-2 | DSPs |
 | CORE-6 | Vector slow paths (div/sqrt, permutes, indexed and segment, reductions, widening) | F | fast / serial, per class | serial | LUTs |
-| CORE-7 | Branch prediction | E | none / static / BHT+BTB / +RAS / +gshare; sizes in F | BHT 128, BTB 32, RAS 2 | RAS and gshare need a BTB |
+| CORE-7 | Branch direction predictor | E | none (fetch stalls until the branch resolves) / static not-taken / static backward-taken-forward-not-taken / 1-bit history table / 2-bit saturating counters (bimodal) / two-level local history / gshare (global history XOR pc) / tournament (bimodal and gshare with a chooser) / TAGE | 2-bit bimodal | the dynamic ones need a BTB (CORE-7a) |
+| CORE-7a | Branch targets | E | none / BTB; with a return-address stack; with an indirect-target predictor | BTB + RAS | -- |
+| CORE-7b | Predictor sizes | F | table entries (64-16K), history length, BTB entries and ways, RAS depth, TAGE tables | 2-bit: 128 entries; BTB 32; RAS 2 | BRAM/LUTs |
 | CORE-8 | L1 caches | E | 4-64 KiB each; ways, line, write policy in F | 16 KiB / 16 KiB | BRAM |
 | CORE-9 | L2 | E | none / 64-512 KiB in URAM | none on the KV260 | URAM shared with the accelerator |
 | CORE-10 | TLBs | F | 4-64 entries each; an L2 TLB; G-stage TLB | 16 / 16 | H: two-stage walk |
 | CORE-11 | PMP entries | -- | 16, as DoomV and Sail's configuration have | -- | an option once DoomV can vary it |
 | CORE-12 | Performance counters | F | 0-29 | 4 | Sscofpmf |
-| CORE-13 | Pipeline depth | F | 3-7 | from the clock target | Fmax against stalls |
+| CORE-13 | Pipeline depth | F | 3-7 (in-order); the front end and commit for the others | from the clock target | Fmax against stalls |
+| CORE-19 | Execution model | E | in-order, stalling on hazards / scoreboarding (in-order issue, out-of-order execution and completion, CDC 6600 style) / Tomasulo (reservation stations, renaming by tag, a common data bus) / explicit renaming (a physical register file and a free list, MIPS R10000 style) | in-order on the KV260 | every one commits in program order through a reorder buffer: see "Out of order, in lock-step" below |
+| CORE-20 | Issue width | E | 1 / 2 / 4 | 1 | above 1: register-file ports, wakeup and bypass grow with it |
+| CORE-21 | Out-of-order sizes | F | reorder buffer 8-128; reservation stations per unit 2-16; common data buses 1-4; physical registers 48-256; load and store queues 4-64 | ROB 16, 4 per unit, 1 bus | CORE-19 |
+| CORE-22 | Memory ordering of loads | F | wait for every older store / store-to-load forwarding / + memory-dependence prediction | forwarding | CORE-19 beyond in-order |
+| CORE-23 | Functional units | F | integer ALUs 1-4, branch units, load/store ports 1-2, multipliers, FP units | 1 of each | CORE-20 |
 | CORE-14 | Physical address width | -- | DoomV's | -- | an option once DoomV can vary it |
 | CORE-15 | Misaligned accesses | -- | in hardware, split as Sail and DoomV split them | -- | trapping them is not something DoomV models |
 | CORE-16 | Board trace hash interval | F | 2^10-2^24 | 2^16 | lockstep.md |
 | CORE-18 | VLEN | E | a power of two, 128 to 65536 bits | 128 | at least the vector datapath (CORE-1); DoomV `-vlen`, Sail's `vlen_exp` |
 | CORE-17 | Harts | E | 1 to as many as fit | 1 on the KV260: a second core costs the LUTs of a large share of the PEs; more where the decode floor leaves room for a whole core | each hart its own CLINT msip/mtimecmp and IMSIC files; caches coherent across harts (board-contract.md); the device tree's cpus; DoomV `-harts=N` |
+
+### Out of order, in lock-step
+
+The execution model (CORE-19), the predictors (CORE-7) and the widths are
+microarchitecture: software cannot see them, so DoomV need not model them,
+and every combination is held to the same DoomV. What makes that true:
+
+- **Commit is in program order, always.** Whatever executes out of order,
+  instructions retire in order from a reorder buffer, one record each, and
+  traps are precise -- RISC-V requires both. Tomasulo is therefore offered
+  only with a reorder buffer (the original, without one, has imprecise
+  exceptions), and scoreboarding commits through one too. The retirement
+  port, the records and the lock-step are the same for every model; only the
+  cycle stamps differ.
+- **Nothing speculative reaches the outside.** Loads from anything that is
+  not RAM, stores, CSR writes with side effects and fences wait until they
+  are the oldest instruction; a mispredicted path leaves no trace in memory,
+  devices or architectural state. A device load that ran early would read a
+  value DoomV's device would not have given.
+- **Branch predictors only change time.** A wrong prediction costs cycles,
+  never a different result, so every predictor passes the same lock-step,
+  and the cycle stamps show what each one costs.
+
+Each model is built in the coding standard's form -- one loop at II=1,
+stage registers, a stall vector -- with the reservation stations, reorder
+buffer and rename tables as arrays updated once per iteration and wakeup as
+fully unrolled tag compares ([hls-coding-standard.md](hls-coding-standard.md)).
+No published HLS core is out of order, so these are a design to prove; the
+in-order core comes first, and the others are offered once each passes the
+lock-step.
 
 ### Accelerator
 

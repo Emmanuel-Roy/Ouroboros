@@ -26,7 +26,9 @@ and report automation in `scripts/`, which the owner asked for (2026-10-01).
   its hard cores doing something (memory controller bring-up, configuration),
   that is generated from the platform too, kept as small as it can be, and
   ends before the RISC-V starts.
-- **RVA23S64 harts, one or more.** Simple pipeline, stalls for hazards. V
+- **RVA23S64 harts, one or more.** The pipeline is a configuration choice
+  (configurator CORE-19): in-order with stalls for hazards first, then
+  scoreboarding, Tomasulo and explicit renaming, all committing in order. V
   with VLEN=128 and a configurable datapath width. The hart count is a
   configuration choice (docs/configurator.md CORE-17); DoomV `-harts=N` is the
   lock-step reference for any count.
