@@ -5,6 +5,16 @@ The owner's decisions, newest first. Where one overrides a research report in
 
 ## 2026-10-07
 
+**Every option passes Sail.** Features are added "as long as it passes
+Sail": an architectural option exists only where DoomV implements it and is
+held to Sail configured the same, on and off. So Zacas and Zabha, the PMP's
+entries and grain, ASID and VMID widths, the physical address width, the
+cache-block size and misaligned trapping are options (DoomV implements and
+gates each against Sail); debug mode (Sdext), hardware triggers (Sdtrig) and
+Ztso are not, because Sail has no model of them. Every microarchitectural
+option is offered, as none is visible to software; counters of
+microarchitectural events are read from the core's record.
+
 **Several branch predictors and execution models, out of order included.**
 The configurator offers branch direction predictors from none and static
 through 1-bit and 2-bit counters to two-level, gshare, tournament and TAGE,

@@ -115,6 +115,7 @@ configurator says which.
 | ID | Lever | Tier | Options | Recommended | Depends on |
 |---|---|---|---|---|---|
 | ISA-1 | Profile | A | RVA23S64 / RVA22S64 / RV64GC | RVA23S64 | RVA23 brings V, H and the rest; the distribution (SW-2); DoomV and Sail configured to match |
+| ISA-2 | Zacas, Zabha | E | on / off each | on if LUT headroom remains | A; amocas.b/.h need both |
 | ISA-3 | Zicfilp, Zicfiss | E | on / off | off | Zicfiss needs A and Zimop |
 | ISA-5 | Zfh, Zvfh | E | on / off each | off on the KV260; on with headroom | Zvfh needs V and Zvfhmin |
 | ISA-6 | Zvfbfmin, Zvfbfwma (bf16) | E | on / off each | off on the KV260 | V; Zvfbfwma needs Zvfbfmin |
@@ -131,8 +132,13 @@ gate (`tools/verification/ext_switches.py`), and Sail is configured to
 match. What the chosen profile requires is on and not offered (RVA23S64
 requires Zvfhmin and Zvbb, for instance); what it leaves optional is.
 
-Removed, because DoomV does not implement them: Zacas, Zabha, Ziccamoc,
-Zama16b, Sdtrig, Ssstrict, Svvptc, and a PLIC.
+Removed, because DoomV does not implement them: Ziccamoc, Zama16b, Ssstrict,
+Svvptc, and a PLIC. And not offered because Sail has no model of them, so
+DoomV could not be held to anything: Sdext (debug mode and a debug module
+for JTAG), Sdtrig (hardware triggers) and Ztso. Every option here passes
+Sail: DoomV's gate holds each extension switch on and off
+(`ext_switches.py`) and each machine parameter (`machine_params.py`)
+against Sail configured the same.
 
 ### Core microarchitecture
 
@@ -148,7 +154,7 @@ Zama16b, Sdtrig, Ssstrict, Svvptc, and a PLIC.
 | CORE-7a | Branch targets | E | none / BTB; with a return-address stack; with an indirect-target predictor | BTB + RAS | -- |
 | CORE-7b | Predictor sizes | F | table entries (64-16K), history length, BTB entries and ways, RAS depth, TAGE tables | 2-bit: 128 entries; BTB 32; RAS 2 | BRAM/LUTs |
 | CORE-8 | L1 caches | E | 4-64 KiB each | 16 KiB / 16 KiB | BRAM |
-| CORE-8a | L1 organisation | F | ways 1-8; line 32-128 bytes; replacement LRU / pseudo-LRU / random; data cache write-back or write-through | 4 ways, 64-byte lines, pseudo-LRU, write-back | the line is at least the cache-block size `cbo` sees (64 bytes) |
+| CORE-8a | L1 organisation | F | ways 1-8; line 32-128 bytes; replacement LRU / pseudo-LRU / random; data cache write-back or write-through | 4 ways, 64-byte lines, pseudo-LRU, write-back | the line is at least the cache-block size `cbo` sees (CORE-15a) |
 | CORE-8b | Non-blocking data cache | F | blocking / hit-under-miss / 2-8 outstanding misses (MSHRs) | blocking in-order; 4 with out of order | CORE-19 |
 | CORE-8c | Store buffer and write combining | F | none / 2-16 entries, combining on or off | 4, combining | loads check it (CORE-22) |
 | CORE-8d | Prefetchers | F | instruction: none / next-line; data: none / next-line / stride | next-line instruction, none for data | memory ports |
@@ -156,17 +162,19 @@ Zama16b, Sdtrig, Ssstrict, Svvptc, and a PLIC.
 | CORE-9 | L2 | E | none / 64-512 KiB in URAM; inclusive / exclusive / non-inclusive of the L1s | none on the KV260 | URAM shared with the accelerator |
 | CORE-10 | TLBs | F | 4-64 entries each; an L2 TLB; G-stage TLB | 16 / 16 | H: two-stage walk |
 | CORE-10a | Page-table walker caches | F | none / caching non-leaf entries, 4-32 | none | -- |
-| CORE-11 | PMP entries | -- | 16, as DoomV and Sail's configuration have | -- | an option once DoomV can vary it |
+| CORE-11 | PMP entries | F | 0 / 16 / 64 entries, of which the first 0-64 work; grain 0-52 (regions of at least 2^(G+2) bytes) | 16, all working, grain 0 | OpenSBI's need; DoomV `-pmp=N:U`, `-pmp-grain=G` |
+| CORE-11a | ASID and VMID widths | F | ASID 0-16 bits, VMID 0-14 bits | 16, 14 | TLB tags (CORE-10); DoomV `-asidlen`, `-vmidlen` |
 | CORE-12 | Performance counters | F | 0-29 | 4 | Sscofpmf |
-| CORE-12a | Counter events | F | architectural (retired instructions, branches, loads, stores, traps) / + microarchitectural (cache and TLB misses, mispredictions, stalls) | both | the microarchitectural ones are read from the core in lock-step: see "Out of order, in lock-step" |
+| CORE-12a | Counter events | F | architectural (retired instructions, branches, loads, stores, traps) / + microarchitectural (cache and TLB misses, mispredictions, stalls) | both | the microarchitectural ones are read from the core in lock-step (DoomV `-lockstep-take-hpm`): see "Out of order, in lock-step" |
 | CORE-13 | Pipeline depth | F | 3-7 (in-order); the front end and commit for the others | from the clock target | Fmax against stalls |
 | CORE-19 | Execution model | E | in-order, stalling on hazards / scoreboarding (in-order issue, out-of-order execution and completion, CDC 6600 style) / Tomasulo (reservation stations, renaming by tag, a common data bus) / explicit renaming (a physical register file and a free list, MIPS R10000 style) | in-order on the KV260 | every one commits in program order through a reorder buffer: see "Out of order, in lock-step" below |
 | CORE-20 | Issue width | E | 1 / 2 / 4 | 1 | above 1: register-file ports, wakeup and bypass grow with it |
 | CORE-21 | Out-of-order sizes | F | reorder buffer 8-128; reservation stations per unit 2-16; common data buses 1-4; physical registers 48-256; load and store queues 4-64 | ROB 16, 4 per unit, 1 bus | CORE-19 |
 | CORE-22 | Memory ordering of loads | F | wait for every older store / store-to-load forwarding / + memory-dependence prediction | forwarding | CORE-19 beyond in-order |
 | CORE-23 | Functional units | F | integer ALUs 1-4, branch units, load/store ports 1-2, multipliers, FP units | 1 of each | CORE-20 |
-| CORE-14 | Physical address width | -- | DoomV's | -- | an option once DoomV can vary it |
-| CORE-15 | Misaligned accesses | -- | in hardware, split as Sail and DoomV split them | -- | trapping them is not something DoomV models |
+| CORE-14 | Physical address width | F | 32-56 bits | the smallest covering memory and MMIO | the device tree; DoomV `-physaddr-bits` |
+| CORE-15 | Misaligned loads and stores | F | in hardware, split / trap (address-misaligned, for software to emulate) | in hardware | trapping needs OpenSBI's emulation; DoomV `-misaligned` |
+| CORE-15a | Cache-block size (`cbo.*`) | F | 8-4096 bytes, a power of two | 64 (Zic64b, which RVA23 expects) | at most the L1 line (CORE-8a); the device tree; DoomV `-cbo-block` |
 | CORE-16 | Board trace hash interval | F | 2^10-2^24 | 2^16 | lockstep.md |
 | CORE-18 | VLEN | E | a power of two, 128 to 65536 bits | 128 | at least the vector datapath (CORE-1); DoomV `-vlen`, Sail's `vlen_exp` |
 | CORE-24 | Front end | F | fetch width 1-4 instructions; fetch queue 2-16; loop buffer none / 8-64 instructions | 1, 4, none | CORE-20 |
