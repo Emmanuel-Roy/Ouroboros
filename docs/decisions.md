@@ -3,6 +3,20 @@
 The owner's decisions, newest first. Where one overrides a research report in
 `agentic/reports/`, it says so; the report itself is left as written.
 
+## 2026-10-21
+
+**Ouroboros generates the core; the work is the generator.** The core is not
+written once: Ouroboros generates it from the configuration. The hardware is
+therefore a library of parameterized HLS C++ templates, one per structure,
+options chosen at compile time from a generated configuration header, plus
+the generator that writes that header, the top level, the HLS configuration,
+the testbench and the matching DoomV arguments for each configuration
+(`Source/generator/`). Lifts AGENTS.md's "no hardware code yet".
+
+**Generated output is never touched by hand -- edits go to the generator
+only.** Anything generated is regenerated, not patched; a wrong output is a
+generator bug, fixed in the generator.
+
 ## 2026-10-07
 
 **Every option passes Sail.** Features are added "as long as it passes

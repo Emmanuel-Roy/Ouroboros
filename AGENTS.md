@@ -5,9 +5,15 @@ The README says what Ouroboros is; this says how to work on it.
 
 ## Phase
 
-**Research and setup. No hardware code yet.** Research notes, reports, designs and
-repository structure, until the owner says otherwise -- plus the build, test
-and report automation in `scripts/`, which the owner asked for (2026-10-01).
+**Building the generator** (owner, 2026-10-21). Ouroboros generates the
+core from a configuration; the hardware is written as the generator -- its
+templates and the scripts that instantiate them -- in `Source/generator/`.
+
+**Generated output is never edited by hand.** Not by a person, not by an
+agent. A generated core, its configuration header, its testbench, its HLS
+and Vivado files, anything under a build's `generated/` folder: if it is
+wrong, the generator is fixed and the output generated again. A hand edit
+to output is lost on the next generation and hides a generator bug.
 
 ## Targets
 
@@ -77,6 +83,8 @@ and report automation in `scripts/`, which the owner asked for (2026-10-01).
 | owner decisions | `docs/decisions.md` |
 | laptop physical hardware | `Hardware/` |
 | software (configurator, generator) | `Source/` |
+| the generator: core templates, their parameters, the scripts that instantiate them | `Source/generator/` |
+| a generated core (never hand-edited) | `build/<name>/generated/` |
 | third-party tools and references (llama.cpp, the verification suites) | `Tools/` |
 | measured runs (written by `scripts/pipeline.py`) | `Performance/` |
 | build, test and report automation | `scripts/` |
