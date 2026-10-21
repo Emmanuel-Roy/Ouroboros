@@ -13,6 +13,10 @@
       resources and Fmax). Then the accuracy stage: every test of every suite
       run on the device under test and lock-stepped against DoomV, strictly.
 
+  python scripts/pipeline.py generate <config.toml> [--out build/<name>]
+      Generate a core from a configuration (Source/generator/): the HLS
+      component in build/<name>/generated/, never to be edited by hand.
+
   python scripts/pipeline.py targets [--family zynquplus] [--search kv260]
       What the program asks for a target, read from the Vitis installation:
       the families, then a family's boards and devices.
@@ -351,9 +355,27 @@ def cmd_selftest(args, cfg) -> int:
     return finish(r, started)
 
 
+def cmd_generate(args, cfg) -> int:
+    """A core from a configuration, by the generator (Source/generator/)."""
+    sys.path.insert(0, str(ROOT / "Source" / "generator"))
+    import generate as gen  # noqa: E402
+    import tomllib as _toml
+    try:
+        name = _toml.loads(args.config.read_text())["core"]["name"]
+        out = gen.generate(args.config, args.out or ROOT / "build" / name)
+    except (gen.ConfigError, KeyError) as e:
+        print(f"configuration: {e}", file=sys.stderr)
+        return 1
+    say(f"generated {out}")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
+    g = sub.add_parser("generate", help="generate a core from a configuration")
+    g.add_argument("config", type=Path)
+    g.add_argument("--out", type=Path, help="the build folder (default build/<name>)")
     t = sub.add_parser("targets", help="families, boards and devices, from the Vitis installation")
     t.add_argument("--family", help="list this family's boards and devices")
     t.add_argument("--board", help="a board's part, memory and I/O, with its companion boards")
@@ -373,7 +395,8 @@ def main() -> int:
     cfg = load_config()
     if args.cmd in ("check", "run", "selftest"):
         cfg["doomv"]["followed"] = follow_doomv(cfg)
-    return {"check": cmd_check, "run": cmd_run, "selftest": cmd_selftest, "targets": cmd_targets}[args.cmd](args, cfg)
+    return {"check": cmd_check, "run": cmd_run, "selftest": cmd_selftest, "targets": cmd_targets,
+            "generate": cmd_generate}[args.cmd](args, cfg)
 
 
 if __name__ == "__main__":

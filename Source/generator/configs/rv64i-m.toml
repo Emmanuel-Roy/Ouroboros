@@ -1,0 +1,25 @@
+# The smallest core: RV64I with machine mode only, in order, on on-chip test
+# memory. The first configuration the generator builds end to end, and the
+# one every later option is added to (docs/decisions.md, 2026-10-21).
+
+[core]
+name = "rv64i-m"
+isa = "rv64i"                     # base letters: i only, for now
+extensions = ["zicsr", "zifencei"]
+priv = "m"                        # m, mu or msu (DoomV -priv)
+pipeline = "inorder5"             # IF ID EX MEM WB, stalling on hazards (CORE-19)
+branch_predictor = "static_not_taken"   # CORE-7
+misaligned = "trap"               # loads and stores (CORE-15; DoomV -misaligned)
+pmp_entries = 0                   # CORE-11 (DoomV -pmp)
+
+[clock]
+core_mhz = 75                     # CORE-2: synthesis estimates 87 MHz for this core (II=1)
+timebase_hz = 1000000             # mtime's rate: core_mhz / timebase is cycles per tick
+
+[memory]
+kind = "bram"                     # on-chip test memory, loaded by the testbench
+base = 0x80000000
+kib = 64
+
+[target]
+part = "xck26-sfvc784-2LV-c"      # the KV260's
